@@ -1,28 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../data/auth_controller.dart';
 import '../data/finance_repository.dart';
 import '../models/person.dart';
+import '../models/person_summary.dart';
+import '../utils/currency_formatter.dart';
+import '../utils/responsive.dart';
+import 'person_detail_screen.dart';
 
 class PersonsScreen extends StatefulWidget {
   const PersonsScreen({super.key});
 
   @override
-  State<PersonsScreen> createState() => _PersonsScreenState();
+  State<PersonsScreen> createState() => PersonsScreenState();
 }
 
-class _PersonsScreenState extends State<PersonsScreen> {
+class PersonsScreenState extends State<PersonsScreen> {
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<FinanceRepository>().refreshPersons();
+      context.read<FinanceRepository>().refreshAll();
     });
   }
 
-  Future<void> _showPersonDialog([Person? person]) async {
+  Future<void> showAddDialog([PersonSummary? summary]) => _showPersonDialog(summary);
+
+  Future<void> _showPersonDialog([PersonSummary? summary]) async {
     final repo = context.read<FinanceRepository>();
+    Person? person;
+    if (summary != null) {
+      for (final p in repo.persons) {
+        if (p.id == summary.personId) {
+          person = p;
+          break;
+        }
+      }
+    }
+
     final nameController = TextEditingController(text: person?.name ?? '');
     final phoneController = TextEditingController(text: person?.phone ?? '');
 
@@ -36,10 +51,12 @@ class _PersonsScreenState extends State<PersonsScreen> {
             TextField(
               controller: nameController,
               decoration: const InputDecoration(labelText: 'Name'),
+              textCapitalization: TextCapitalization.words,
             ),
             TextField(
               controller: phoneController,
               decoration: const InputDecoration(labelText: 'Phone (optional)'),
+              keyboardType: TextInputType.phone,
             ),
           ],
         ),
@@ -74,9 +91,14 @@ class _PersonsScreenState extends State<PersonsScreen> {
         await repo.createPerson(name: name, phone: phone);
       } else {
         await repo.updatePerson(
-          Person(id: person.id, name: name, phone: phone.isEmpty ? null : phone),
+          Person(
+            id: person.id,
+            name: name,
+            phone: phone.isEmpty ? null : phone,
+          ),
         );
       }
+      await repo.refreshAll();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -86,12 +108,12 @@ class _PersonsScreenState extends State<PersonsScreen> {
     }
   }
 
-  Future<void> _delete(Person person) async {
+  Future<void> _delete(PersonSummary summary) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete person?'),
-        content: Text('Remove ${person.name}?'),
+        content: Text('Remove ${summary.name}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -106,8 +128,10 @@ class _PersonsScreenState extends State<PersonsScreen> {
     );
     if (confirmed != true || !mounted) return;
 
+    final repo = context.read<FinanceRepository>();
     try {
-      await context.read<FinanceRepository>().deletePerson(person.id);
+      await repo.deletePerson(summary.personId);
+      await repo.refreshAll();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -117,76 +141,160 @@ class _PersonsScreenState extends State<PersonsScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final repo = context.watch<FinanceRepository>();
-    final persons = repo.persons;
-
-    return Scaffold(
-      body: persons.isEmpty
-          ? const Center(child: Text('No persons yet'))
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: persons.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final person = persons[index];
-                return ListTile(
-                  title: Text(person.name),
-                  subtitle: person.phone != null ? Text(person.phone!) : null,
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        _showPersonDialog(person);
-                      } else if (value == 'delete') {
-                        _delete(person);
-                      }
-                    },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'edit', child: Text('Edit')),
-                      PopupMenuItem(value: 'delete', child: Text('Delete')),
-                    ],
-                  ),
-                );
-              },
-            ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showPersonDialog(),
-        child: const Icon(Icons.person_add),
+  void _openPerson(PersonSummary summary) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PersonDetailScreen(summary: summary),
       ),
     );
   }
-}
 
-class AccountScreen extends StatelessWidget {
-  const AccountScreen({super.key});
+  Widget _buildPersonCard(PersonSummary summary) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: Theme.of(context).dividerColor,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _openPerson(summary),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    child: Text(
+                      summary.name.isNotEmpty
+                          ? summary.name[0].toUpperCase()
+                          : '?',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          summary.name,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        if (summary.phone != null)
+                          Text(
+                            summary.phone!,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (summary.totalRemaining > 0)
+                    Text(
+                      formatInr(summary.totalRemaining),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange.shade800,
+                      ),
+                    ),
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        _showPersonDialog(summary);
+                      } else if (value == 'delete') {
+                        _delete(summary);
+                      }
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Text('Edit'),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Delete'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              if (summary.hasCredit) ...[
+                const SizedBox(height: 10),
+                Text(
+                  'Given ${formatInr(summary.totalCredit)} · Received ${formatInr(summary.totalReceived)} · Pending ${formatInr(summary.totalRemaining)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthController>();
+    final repo = context.watch<FinanceRepository>();
+    final summaries = repo.personSummaries;
+    final columns = context.listColumns;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.person)),
-          title: Text(auth.userName ?? 'User'),
-          subtitle: Text(auth.userEmail ?? ''),
+    if (summaries.isEmpty) {
+      return AdaptiveBody(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.people_outline,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No persons yet',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tap + to add someone you lend to',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
         ),
-        const Divider(),
-        ListTile(
-          leading: const Icon(Icons.dns_outlined),
-          title: const Text('Server'),
-          subtitle: Text(auth.serverUrl),
-        ),
-        const SizedBox(height: 24),
-        FilledButton.tonal(
-          onPressed: () async {
-            await auth.signOut();
-          },
-          child: const Text('Sign out'),
-        ),
-      ],
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: repo.refreshAll,
+      child: AdaptiveBody(
+        child: columns == 1
+            ? ListView.separated(
+                padding: EdgeInsets.zero,
+                itemCount: summaries.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
+                itemBuilder: (context, index) =>
+                    _buildPersonCard(summaries[index]),
+              )
+            : GridView.builder(
+                padding: EdgeInsets.zero,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 8,
+                  childAspectRatio: 1.7,
+                ),
+                itemCount: summaries.length,
+                itemBuilder: (context, index) =>
+                    _buildPersonCard(summaries[index]),
+              ),
+      ),
     );
   }
 }

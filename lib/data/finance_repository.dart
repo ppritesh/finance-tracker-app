@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+import '../logic/person_ledger.dart';
 import '../models/person.dart';
+import '../models/person_summary.dart';
 import '../models/summary.dart';
 import '../models/transaction.dart';
 import '../utils/currency_formatter.dart';
@@ -27,6 +29,11 @@ class FinanceRepository extends ChangeNotifier {
   List<Transaction> get transactions => List.unmodifiable(_transactions);
   List<Person> get persons => List.unmodifiable(_persons);
 
+  List<PersonSummary> get personSummaries => buildPersonSummaries(
+    persons: persons,
+    transactions: _transactions,
+  );
+
   Future<void> refreshAll() async {
     _loading = true;
     _error = null;
@@ -52,10 +59,12 @@ class FinanceRepository extends ChangeNotifier {
   Future<void> refreshTransactions({
     TransactionType? type,
     TransactionStatus? status,
+    int? personId,
   }) async {
     final rows = await api.fetchTransactions(
       type: type?.apiValue,
       status: status?.apiValue,
+      personId: personId,
     );
     _transactions = rows.map(Transaction.fromJson).toList();
   }
@@ -86,6 +95,25 @@ class FinanceRepository extends ChangeNotifier {
   Future<void> deleteTransaction(int id) async {
     await api.deleteTransaction(id);
     await refreshAll();
+  }
+
+  Future<Transaction> recordPayment(
+    int id, {
+    required double amount,
+    required DateTime receivedOn,
+    String? receivedNote,
+  }) async {
+    final json = await api.recordPayment(
+      id,
+      amount: amount,
+      receivedOn: formatApiDate(receivedOn),
+      receivedNote: receivedNote,
+    );
+    final updated = Transaction.fromJson(
+      json['transaction'] as Map<String, dynamic>,
+    );
+    await refreshAll();
+    return updated;
   }
 
   Future<Transaction> markReceived(

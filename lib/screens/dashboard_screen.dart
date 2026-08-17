@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/finance_repository.dart';
+import '../utils/responsive.dart';
 import '../widgets/summary_card.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -22,39 +23,55 @@ class DashboardScreen extends StatelessWidget {
       );
     }
 
+    final columns = context.dashboardColumns;
+    final cards = [
+      SummaryCard(
+        title: 'Pending Udhari',
+        amount: summary.pendingCreditTotal,
+        icon: Icons.hourglass_top,
+        color: Colors.orange.shade800,
+      ),
+      SummaryCard(
+        title: 'Received This Month',
+        amount: summary.receivedCreditTotal,
+        icon: Icons.check_circle_outline,
+        color: Colors.green.shade700,
+      ),
+      SummaryCard(
+        title: 'Expenses This Month',
+        amount: summary.expenseTotalThisMonth,
+        icon: Icons.shopping_bag_outlined,
+        color: Colors.blue.shade700,
+      ),
+      SummaryCard(
+        title: 'Total Expenses',
+        amount: summary.expenseTotalAllTime,
+        icon: Icons.receipt_long,
+        color: Theme.of(context).colorScheme.primary,
+      ),
+    ];
+
     return RefreshIndicator(
       onRefresh: repo.refreshAll,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          SummaryCard(
-            title: 'Pending Udhari',
-            amount: summary.pendingCreditTotal,
-            icon: Icons.hourglass_top,
-            color: Colors.orange.shade800,
-          ),
-          const SizedBox(height: 12),
-          SummaryCard(
-            title: 'Received This Month',
-            amount: summary.receivedCreditTotal,
-            icon: Icons.check_circle_outline,
-            color: Colors.green.shade700,
-          ),
-          const SizedBox(height: 12),
-          SummaryCard(
-            title: 'Expenses This Month',
-            amount: summary.expenseTotalThisMonth,
-            icon: Icons.shopping_bag_outlined,
-            color: Colors.blue.shade700,
-          ),
-          const SizedBox(height: 12),
-          SummaryCard(
-            title: 'Total Expenses',
-            amount: summary.expenseTotalAllTime,
-            icon: Icons.receipt_long,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-        ],
+      child: AdaptiveBody(
+        child: columns == 1
+            ? ListView.separated(
+                padding: EdgeInsets.zero,
+                itemCount: cards.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
+                itemBuilder: (_, i) => cards[i],
+              )
+            : GridView.builder(
+                padding: EdgeInsets.zero,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: columns,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: columns >= 4 ? 1.6 : 1.8,
+                ),
+                itemCount: cards.length,
+                itemBuilder: (_, i) => cards[i],
+              ),
       ),
     );
   }

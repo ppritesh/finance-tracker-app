@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/auth_controller.dart';
+import '../utils/responsive.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -15,25 +16,16 @@ class _AuthScreenState extends State<AuthScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _serverController = TextEditingController();
 
   bool _isLogin = true;
   bool _busy = false;
   String? _error;
 
   @override
-  void initState() {
-    super.initState();
-    final auth = context.read<AuthController>();
-    _serverController.text = auth.serverUrl;
-  }
-
-  @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _serverController.dispose();
     super.dispose();
   }
 
@@ -47,7 +39,6 @@ class _AuthScreenState extends State<AuthScreen> {
 
     final auth = context.read<AuthController>();
     try {
-      await auth.setServerUrl(_serverController.text);
       if (_isLogin) {
         await auth.signIn(
           email: _emailController.text.trim(),
@@ -69,109 +60,110 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isWide = context.screenWidth >= Breakpoints.tablet;
+
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Icon(
-                    Icons.account_balance_wallet_outlined,
-                    size: 56,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Finance Tracker',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Track udhari and expenses in rupees',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: context.pagePadding.copyWith(top: 24, bottom: 32),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: isWide ? 440 : 420),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Icon(
+                      Icons.account_balance_wallet_outlined,
+                      size: isWide ? 64 : 56,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
-                  ),
-                  const SizedBox(height: 32),
-                  TextFormField(
-                    controller: _serverController,
-                    decoration: const InputDecoration(
-                      labelText: 'Server URL',
-                      border: OutlineInputBorder(),
-                      helperText: 'Use http://10.0.2.2:8000/api on Android emulator',
+                    const SizedBox(height: 16),
+                    Text(
+                      'Finance Tracker',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium,
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (!_isLogin)
+                    const SizedBox(height: 4),
+                    Text(
+                      'Track udhari and expenses in rupees',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    if (!_isLogin)
+                      TextFormField(
+                        controller: _nameController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'Name',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      ),
+                    if (!_isLogin) const SizedBox(height: 16),
                     TextFormField(
-                      controller: _nameController,
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      autocorrect: false,
                       decoration: const InputDecoration(
-                        labelText: 'Name',
+                        labelText: 'Email',
                         border: OutlineInputBorder(),
                       ),
                       validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                          (v == null || !v.contains('@')) ? 'Invalid email' : null,
                     ),
-                  if (!_isLogin) const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Password',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) => (v == null || v.length < 8)
+                          ? 'At least 8 characters'
+                          : null,
                     ),
-                    validator: (v) =>
-                        (v == null || !v.contains('@')) ? 'Invalid email' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      border: OutlineInputBorder(),
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _error!,
+                        style:
+                            TextStyle(color: Theme.of(context).colorScheme.error),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      onPressed: _busy ? null : _submit,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      child: _busy
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(_isLogin ? 'Sign in' : 'Create account'),
                     ),
-                    validator: (v) => (v == null || v.length < 8)
-                        ? 'At least 8 characters'
-                        : null,
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      _error!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() => _isLogin = !_isLogin),
+                      child: Text(
+                        _isLogin
+                            ? 'Need an account? Register'
+                            : 'Already have an account? Sign in',
+                      ),
                     ),
                   ],
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: _busy ? null : _submit,
-                    child: _busy
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(_isLogin ? 'Sign in' : 'Create account'),
-                  ),
-                  TextButton(
-                    onPressed: _busy
-                        ? null
-                        : () => setState(() => _isLogin = !_isLogin),
-                    child: Text(
-                      _isLogin
-                          ? 'Need an account? Register'
-                          : 'Already have an account? Sign in',
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

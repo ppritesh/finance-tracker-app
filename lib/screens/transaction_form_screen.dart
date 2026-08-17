@@ -5,12 +5,20 @@ import '../data/finance_repository.dart';
 import '../models/person.dart';
 import '../models/transaction.dart';
 import '../utils/currency_formatter.dart';
+import '../utils/responsive.dart';
 import '../widgets/amount_field.dart';
 
 class TransactionFormScreen extends StatefulWidget {
-  const TransactionFormScreen({super.key, this.transaction});
+  const TransactionFormScreen({
+    super.key,
+    this.transaction,
+    this.initialPerson,
+    this.initialType,
+  });
 
   final Transaction? transaction;
+  final Person? initialPerson;
+  final TransactionType? initialType;
 
   @override
   State<TransactionFormScreen> createState() => _TransactionFormScreenState();
@@ -47,7 +55,8 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
         }
       }
     } else {
-      _type = TransactionType.creditGiven;
+      _type = widget.initialType ?? TransactionType.creditGiven;
+      _selectedPerson = widget.initialPerson;
     }
   }
 
@@ -188,6 +197,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
   @override
   Widget build(BuildContext context) {
     final isReceivedCredit = widget.transaction?.status == TransactionStatus.received;
+    final hasPayments = widget.transaction?.status == TransactionStatus.partial;
 
     return Scaffold(
       appBar: AppBar(
@@ -195,9 +205,11 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
       ),
       body: Form(
         key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
+        child: AdaptiveBody(
+          maxWidth: 560,
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
             SegmentedButton<TransactionType>(
               segments: const [
                 ButtonSegment(
@@ -212,7 +224,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
                 ),
               ],
               selected: {_type},
-              onSelectionChanged: isReceivedCredit
+              onSelectionChanged: isReceivedCredit || hasPayments
                   ? null
                   : (value) => setState(() => _type = value.first),
             ),
@@ -223,7 +235,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
                 title: const Text('Person'),
                 subtitle: Text(_selectedPerson?.name ?? 'Tap to select'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: isReceivedCredit ? null : _pickPerson,
+                onTap: isReceivedCredit || hasPayments ? null : _pickPerson,
               ),
             AmountField(controller: _amountController),
             const SizedBox(height: 16),
@@ -232,7 +244,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
               title: const Text('Date'),
               subtitle: Text(formatDate(_date)),
               trailing: const Icon(Icons.calendar_today),
-              onTap: isReceivedCredit ? null : _pickDate,
+              onTap: isReceivedCredit || hasPayments ? null : _pickDate,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -242,10 +254,10 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
                 border: OutlineInputBorder(),
               ),
               maxLines: 3,
-              readOnly: isReceivedCredit,
+              readOnly: isReceivedCredit || hasPayments,
             ),
             const SizedBox(height: 24),
-            if (!isReceivedCredit)
+            if (!isReceivedCredit && !hasPayments)
               FilledButton(
                 onPressed: _busy ? null : _save,
                 child: _busy
@@ -257,6 +269,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
                     : Text(_isEdit ? 'Save changes' : 'Add transaction'),
               ),
           ],
+          ),
         ),
       ),
     );

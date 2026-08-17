@@ -9,7 +9,6 @@ class AuthController extends ChangeNotifier {
   static const _tokenKey = 'auth_token';
   static const _nameKey = 'auth_user_name';
   static const _emailKey = 'auth_user_email';
-  static const _serverKey = 'server_url';
 
   final ApiClient api;
 
@@ -21,23 +20,13 @@ class AuthController extends ChangeNotifier {
   bool get isAuthenticated => api.token != null;
   String? get userName => _userName;
   String? get userEmail => _userEmail;
-  String get serverUrl => api.baseUrl;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     api.token = prefs.getString(_tokenKey);
-    api.baseUrl = prefs.getString(_serverKey) ?? ApiClient.defaultBaseUrl;
     _userName = prefs.getString(_nameKey);
     _userEmail = prefs.getString(_emailKey);
     _loaded = true;
-    notifyListeners();
-  }
-
-  Future<void> setServerUrl(String url) async {
-    final trimmed = url.trim().replaceAll(RegExp(r'/+$'), '');
-    api.baseUrl = trimmed.isEmpty ? ApiClient.defaultBaseUrl : trimmed;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_serverKey, api.baseUrl);
     notifyListeners();
   }
 

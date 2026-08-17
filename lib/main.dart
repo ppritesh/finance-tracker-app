@@ -47,6 +47,13 @@ class _FinanceTrackerAppState extends State<FinanceTrackerApp> {
             brightness: Brightness.light,
           ),
           useMaterial3: true,
+          inputDecorationTheme: const InputDecorationTheme(
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+          navigationBarTheme: const NavigationBarThemeData(
+            height: 64,
+          ),
         ),
         darkTheme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
@@ -54,6 +61,13 @@ class _FinanceTrackerAppState extends State<FinanceTrackerApp> {
             brightness: Brightness.dark,
           ),
           useMaterial3: true,
+          inputDecorationTheme: const InputDecorationTheme(
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+          navigationBarTheme: const NavigationBarThemeData(
+            height: 64,
+          ),
         ),
         home: const _AppGate(),
       ),

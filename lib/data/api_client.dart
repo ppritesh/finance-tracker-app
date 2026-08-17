@@ -17,7 +17,7 @@ class ApiException implements Exception {
 class ApiClient {
   ApiClient({this.baseUrl = defaultBaseUrl});
 
-  static const defaultBaseUrl = 'http://127.0.0.1:8000/api';
+  static const defaultBaseUrl = 'https://fintracker.ztox.in/api';
   static const _timeout = Duration(seconds: 20);
 
   String baseUrl;
@@ -164,6 +164,18 @@ class ApiClient {
   ) => _put('/transactions/$id', body);
 
   Future<void> deleteTransaction(int id) => _delete('/transactions/$id');
+
+  Future<Map<String, dynamic>> recordPayment(
+    int id, {
+    required double amount,
+    required String receivedOn,
+    String? receivedNote,
+  }) => _post('/transactions/$id/record-payment', {
+    'amount': amount,
+    'receivedOn': receivedOn,
+    if (receivedNote != null && receivedNote.isNotEmpty)
+      'receivedNote': receivedNote,
+  });
 
   Future<Map<String, dynamic>> markReceived(
     int id, {

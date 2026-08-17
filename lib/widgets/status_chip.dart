@@ -32,6 +32,8 @@ class StatusChip extends StatelessWidget {
     switch (status) {
       case TransactionStatus.pending:
         return ('Pending', Colors.orange.shade800);
+      case TransactionStatus.partial:
+        return ('Partial', Colors.amber.shade800);
       case TransactionStatus.received:
         return ('Received', Colors.green.shade700);
       case TransactionStatus.paid:
