@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/currency_formatter.dart';
+import '../utils/responsive.dart';
 
 class SummaryCard extends StatelessWidget {
   const SummaryCard({
@@ -20,6 +21,7 @@ class SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = color ?? theme.colorScheme.primary;
+    final isDesktop = context.isDesktop;
 
     return Card(
       elevation: 0,
@@ -28,14 +30,14 @@ class SummaryCard extends StatelessWidget {
         side: BorderSide(color: theme.dividerColor),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(isDesktop ? 20 : 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 if (icon != null) ...[
-                  Icon(icon, size: 18, color: accent),
+                  Icon(icon, size: isDesktop ? 22 : 18, color: accent),
                   const SizedBox(width: 8),
                 ],
                 Expanded(
@@ -43,15 +45,19 @@ class SummaryCard extends StatelessWidget {
                     title,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: isDesktop ? 15 : null,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: isDesktop ? 12 : 8),
             Text(
               formatInr(amount),
-              style: theme.textTheme.headlineSmall?.copyWith(
+              style: (isDesktop
+                      ? theme.textTheme.headlineMedium
+                      : theme.textTheme.headlineSmall)
+                  ?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: accent,
               ),

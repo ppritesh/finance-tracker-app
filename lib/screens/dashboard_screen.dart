@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../data/finance_repository.dart';
 import '../utils/responsive.dart';
+import '../widgets/recent_transactions_panel.dart';
 import '../widgets/summary_card.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -23,7 +24,6 @@ class DashboardScreen extends StatelessWidget {
       );
     }
 
-    final columns = context.dashboardColumns;
     final cards = [
       SummaryCard(
         title: 'Pending Udhari',
@@ -50,6 +50,58 @@ class DashboardScreen extends StatelessWidget {
         color: Theme.of(context).colorScheme.primary,
       ),
     ];
+
+    if (context.isDesktop) {
+      return RefreshIndicator(
+        onRefresh: repo.refreshAll,
+        child: AdaptiveBody(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final useSidePanel = constraints.maxWidth >= 1000;
+
+              final summaryGrid = GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 1.85,
+                ),
+                itemCount: cards.length,
+                itemBuilder: (_, i) => cards[i],
+              );
+
+              if (!useSidePanel) {
+                return ListView(
+                  padding: EdgeInsets.zero,
+                  children: [summaryGrid],
+                );
+              }
+
+              return ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 3, child: summaryGrid),
+                      const SizedBox(width: 24),
+                      const Expanded(
+                        flex: 2,
+                        child: RecentTransactionsPanel(),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    final columns = context.dashboardColumns;
 
     return RefreshIndicator(
       onRefresh: repo.refreshAll,

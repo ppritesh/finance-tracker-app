@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../data/finance_repository.dart';
 import '../logic/person_ledger.dart';
 import '../models/transaction.dart';
+import '../utils/adaptive_navigation.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/responsive.dart';
 import '../widgets/transaction_tile.dart';
@@ -54,19 +55,18 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 
   Future<void> _openForm([Transaction? transaction]) async {
-    final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => TransactionFormScreen(transaction: transaction),
-      ),
+    final changed = await pushAdaptivePage<bool>(
+      context,
+      TransactionFormScreen(transaction: transaction),
     );
     if (changed == true && mounted) await _applyFilter();
   }
 
   Future<void> _markReceived(Transaction transaction) async {
-    final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => MarkReceivedScreen(transaction: transaction),
-      ),
+    final changed = await pushAdaptivePage<bool>(
+      context,
+      MarkReceivedScreen(transaction: transaction),
+      maxWidth: 600,
     );
     if (changed == true && mounted) await _applyFilter();
   }
@@ -147,11 +147,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
     return GridView.builder(
       padding: EdgeInsets.zero,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns,
         crossAxisSpacing: 12,
         mainAxisSpacing: 8,
-        childAspectRatio: 1.55,
+        childAspectRatio: columns >= 3 ? 1.45 : 1.55,
       ),
       itemCount: transactions.length,
       itemBuilder: (context, index) {
@@ -213,11 +213,157 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
   }
 
+  Widget _buildFilters({bool vertical = false}) {
+    final filters = TransactionFilter.values;
+
+    if (vertical) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: filters.map((filter) {
+          final selected = _filter == filter;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: ListTile(
+              dense: true,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              selected: selected,
+              selectedTileColor: Theme.of(context)
+                  .colorScheme
+                  .primaryContainer
+                  .withValues(alpha: 0.4),
+              title: Text(_filterLabel(filter)),
+              onTap: () async {
+                setState(() => _filter = filter);
+                await _applyFilter();
+              },
+            ),
+          );
+        }).toList(),
+      );
+    }
+
+    if (!context.isMobile) {
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: filters.map((filter) {
+          return FilterChip(
+            label: Text(_filterLabel(filter)),
+            selected: _filter == filter,
+            onSelected: (_) async {
+              setState(() => _filter = filter);
+              await _applyFilter();
+            },
+          );
+        }).toList(),
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: filters.map((filter) {
+          final selected = _filter == filter;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: Text(_filterLabel(filter)),
+              selected: selected,
+              onSelected: (_) async {
+                setState(() => _filter = filter);
+                await _applyFilter();
+              },
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildToolbar() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SegmentedButton<LedgerViewMode>(
+          segments: const [
+            ButtonSegment(
+              value: LedgerViewMode.list,
+              label: Text('List'),
+              icon: Icon(Icons.list),
+            ),
+            ButtonSegment(
+              value: LedgerViewMode.byPerson,
+              label: Text('By person'),
+              icon: Icon(Icons.people_outline),
+            ),
+          ],
+          selected: {_viewMode},
+          onSelectionChanged: (value) {
+            setState(() => _viewMode = value.first);
+          },
+        ),
+        if (!context.isDesktop) ...[
+          const SizedBox(height: 12),
+          _buildFilters(),
+          const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final repo = context.watch<FinanceRepository>();
     final transactions = repo.transactions;
-    final useWrapFilters = !context.isMobile;
+    final useDesktopLayout = context.isDesktop;
+
+    final listContent = repo.isLoading && transactions.isEmpty
+        ? const Center(child: CircularProgressIndicator())
+        : RefreshIndicator(
+            onRefresh: _applyFilter,
+            child: _viewMode == LedgerViewMode.list
+                ? _buildTransactionList(transactions)
+                : _buildGroupedByPerson(transactions),
+          );
+
+    if (useDesktopLayout) {
+      return AdaptiveBody(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 200,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Filters',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildFilters(vertical: true),
+                ],
+              ),
+            ),
+            const SizedBox(width: 32),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildToolbar(),
+                  const SizedBox(height: 16),
+                  Expanded(child: listContent),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Column(
       children: [
@@ -228,78 +374,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             context.pagePadding.right,
             0,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SegmentedButton<LedgerViewMode>(
-                segments: const [
-                  ButtonSegment(
-                    value: LedgerViewMode.list,
-                    label: Text('List'),
-                    icon: Icon(Icons.list),
-                  ),
-                  ButtonSegment(
-                    value: LedgerViewMode.byPerson,
-                    label: Text('By person'),
-                    icon: Icon(Icons.people_outline),
-                  ),
-                ],
-                selected: {_viewMode},
-                onSelectionChanged: (value) {
-                  setState(() => _viewMode = value.first);
-                },
-              ),
-              const SizedBox(height: 12),
-              if (useWrapFilters)
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: TransactionFilter.values.map((filter) {
-                    return FilterChip(
-                      label: Text(_filterLabel(filter)),
-                      selected: _filter == filter,
-                      onSelected: (_) async {
-                        setState(() => _filter = filter);
-                        await _applyFilter();
-                      },
-                    );
-                  }).toList(),
-                )
-              else
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: TransactionFilter.values.map((filter) {
-                      final selected = _filter == filter;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          label: Text(_filterLabel(filter)),
-                          selected: selected,
-                          onSelected: (_) async {
-                            setState(() => _filter = filter);
-                            await _applyFilter();
-                          },
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              const SizedBox(height: 12),
-            ],
-          ),
+          child: _buildToolbar(),
         ),
         Expanded(
-          child: repo.isLoading && transactions.isEmpty
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: _applyFilter,
-                  child: AdaptiveBody(
-                    child: _viewMode == LedgerViewMode.list
-                        ? _buildTransactionList(transactions)
-                        : _buildGroupedByPerson(transactions),
-                  ),
-                ),
+          child: AdaptiveBody(child: listContent),
         ),
       ],
     );

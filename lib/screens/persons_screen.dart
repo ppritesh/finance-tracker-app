@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../data/finance_repository.dart';
 import '../models/person.dart';
 import '../models/person_summary.dart';
+import '../utils/adaptive_navigation.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/responsive.dart';
 import 'person_detail_screen.dart';
@@ -142,10 +143,11 @@ class PersonsScreenState extends State<PersonsScreen> {
   }
 
   void _openPerson(PersonSummary summary) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => PersonDetailScreen(summary: summary),
-      ),
+    pushAdaptivePage<void>(
+      context,
+      PersonDetailScreen(summary: summary),
+      maxWidth: 900,
+      maxHeight: 800,
     );
   }
 
@@ -260,7 +262,9 @@ class PersonsScreenState extends State<PersonsScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Tap + to add someone you lend to',
+                context.isDesktop
+                    ? 'Click "Add person" to get started'
+                    : 'Tap + to add someone you lend to',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -284,11 +288,11 @@ class PersonsScreenState extends State<PersonsScreen> {
               )
             : GridView.builder(
                 padding: EdgeInsets.zero,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: columns,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 8,
-                  childAspectRatio: 1.7,
+                  childAspectRatio: columns >= 3 ? 1.55 : 1.7,
                 ),
                 itemCount: summaries.length,
                 itemBuilder: (context, index) =>

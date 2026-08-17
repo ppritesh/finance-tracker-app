@@ -6,6 +6,7 @@ import '../logic/person_ledger.dart';
 import '../models/person.dart';
 import '../models/person_summary.dart';
 import '../models/transaction.dart';
+import '../utils/adaptive_navigation.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/responsive.dart';
 import '../widgets/transaction_tile.dart';
@@ -47,19 +48,18 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   }
 
   Future<void> _openForm([Transaction? transaction]) async {
-    final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => TransactionFormScreen(transaction: transaction),
-      ),
+    final changed = await pushAdaptivePage<bool>(
+      context,
+      TransactionFormScreen(transaction: transaction),
     );
     if (changed == true && mounted) await _load();
   }
 
   Future<void> _recordPayment(Transaction transaction) async {
-    final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => MarkReceivedScreen(transaction: transaction),
-      ),
+    final changed = await pushAdaptivePage<bool>(
+      context,
+      MarkReceivedScreen(transaction: transaction),
+      maxWidth: 600,
     );
     if (changed == true && mounted) await _load();
   }
@@ -96,13 +96,44 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     }
   }
 
+  Future<void> _addCredit() async {
+    Person? person;
+    for (final p in context.read<FinanceRepository>().persons) {
+      if (p.id == widget.summary.personId) {
+        person = p;
+        break;
+      }
+    }
+    if (person == null) return;
+
+    final changed = await pushAdaptivePage<bool>(
+      context,
+      TransactionFormScreen(
+        initialPerson: person,
+        initialType: TransactionType.creditGiven,
+      ),
+    );
+    if (changed == true && mounted) await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = widget.summary;
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(s.name)),
+      appBar: AppBar(
+        title: Text(s.name),
+        actions: context.isDesktop
+            ? [
+                FilledButton.tonal(
+                  onPressed: _addCredit,
+                  child: const Text('Add credit'),
+                ),
+                const SizedBox(width: 8),
+              ]
+            : null,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -159,29 +190,12 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 ),
               ),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          Person? person;
-          for (final p in context.read<FinanceRepository>().persons) {
-            if (p.id == s.personId) {
-              person = p;
-              break;
-            }
-          }
-          if (person == null) return;
-
-          final changed = await Navigator.of(context).push<bool>(
-            MaterialPageRoute(
-              builder: (_) => TransactionFormScreen(
-                initialPerson: person,
-                initialType: TransactionType.creditGiven,
-              ),
+      floatingActionButton: context.isDesktop
+          ? null
+          : FloatingActionButton(
+              onPressed: _addCredit,
+              child: const Icon(Icons.add),
             ),
-          );
-          if (changed == true && mounted) await _load();
-        },
-        child: const Icon(Icons.add),
-      ),
     );
   }
 }
