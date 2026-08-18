@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -244,7 +245,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (context.useDesktopShell) {
+    // Desktop shell/rail triggers Flutter web mouse-cursor bugs; use mobile nav on web.
+    final useDesktopShell = context.useDesktopShell && !kIsWeb;
+    final useNavigationRail = context.useNavigationRail && !kIsWeb;
+
+    if (useDesktopShell) {
       return Scaffold(
         body: Row(
           children: [
@@ -255,7 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    if (context.useNavigationRail) {
+    if (useNavigationRail) {
       return _buildRailLayout();
     }
 

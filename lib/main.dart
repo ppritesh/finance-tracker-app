@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -9,8 +12,18 @@ import 'screens/home_screen.dart';
 import 'screens/two_factor_verify_screen.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const FinanceTrackerApp());
+  runZonedGuarded(() {
+    WidgetsFlutterBinding.ensureInitialized();
+    if (kIsWeb) {
+      PlatformDispatcher.instance.onError = (error, stack) {
+        debugPrint('Web error: $error');
+        return true;
+      };
+    }
+    runApp(const FinanceTrackerApp());
+  }, (error, stack) {
+    debugPrint('Zone error: $error');
+  });
 }
 
 class FinanceTrackerApp extends StatefulWidget {

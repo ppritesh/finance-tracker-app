@@ -35,15 +35,16 @@ class AuthController extends ChangeNotifier {
   Future<void> load() async {
     try {
       api.token = await _secureStorage.readToken();
+      final prefs = await SharedPreferences.getInstance();
+      _userName = prefs.getString(_nameKey);
+      _userEmail = prefs.getString(_emailKey);
+      _twoFactorEnabled = prefs.getBool(_twoFactorKey) ?? false;
     } catch (_) {
       api.token = null;
+    } finally {
+      _loaded = true;
+      notifyListeners();
     }
-    final prefs = await SharedPreferences.getInstance();
-    _userName = prefs.getString(_nameKey);
-    _userEmail = prefs.getString(_emailKey);
-    _twoFactorEnabled = prefs.getBool(_twoFactorKey) ?? false;
-    _loaded = true;
-    notifyListeners();
   }
 
   Future<void> signUp({
