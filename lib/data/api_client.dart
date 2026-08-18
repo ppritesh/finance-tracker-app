@@ -115,6 +115,28 @@ class ApiClient {
     required String password,
   }) => _post('/auth/login', {'email': email, 'password': password});
 
+  Future<Map<String, dynamic>> verifyTwoFactor({
+    required String twoFactorToken,
+    required String code,
+  }) => _post('/auth/two-factor/verify', {
+    'twoFactorToken': twoFactorToken,
+    'code': code,
+  });
+
+  Future<Map<String, dynamic>> setupTwoFactor() =>
+      _post('/auth/two-factor/setup');
+
+  Future<Map<String, dynamic>> confirmTwoFactor({required String code}) =>
+      _post('/auth/two-factor/confirm', {'code': code});
+
+  Future<Map<String, dynamic>> disableTwoFactor({
+    required String password,
+    required String code,
+  }) => _post('/auth/two-factor/disable', {
+    'password': password,
+    'code': code,
+  });
+
   Future<void> logout() => _post('/auth/logout');
 
   Future<Map<String, dynamic>> fetchUser() => _get('/auth/user');

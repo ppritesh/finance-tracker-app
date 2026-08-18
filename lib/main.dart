@@ -6,6 +6,7 @@ import 'data/auth_controller.dart';
 import 'data/finance_repository.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/two_factor_verify_screen.dart';
 
 void main() {
   runApp(const FinanceTrackerApp());
@@ -88,31 +89,46 @@ class _AppGateState extends State<_AppGate> {
   @override
   void initState() {
     super.initState();
-    _maybeLoadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncDataLoad());
   }
 
-  Future<void> _maybeLoadData() async {
+  Future<void> _syncDataLoad() async {
     final auth = context.read<AuthController>();
     while (!auth.isLoaded) {
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }
-    if (auth.isAuthenticated && mounted) {
+
+    if (!mounted) return;
+
+    if (auth.isAuthenticated && !auth.needsTwoFactor && !_dataLoaded) {
       await context.read<FinanceRepository>().refreshAll();
+      if (mounted) setState(() => _dataLoaded = true);
+      return;
     }
-    if (mounted) setState(() => _dataLoaded = true);
+
+    if ((!auth.isAuthenticated || auth.needsTwoFactor) && _dataLoaded) {
+      setState(() => _dataLoaded = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
 
-    if (!auth.isLoaded || (auth.isAuthenticated && !_dataLoaded)) {
+    if (auth.isAuthenticated && !auth.needsTwoFactor && !_dataLoaded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _syncDataLoad());
+    }
+
+    if (!auth.isLoaded || (auth.isAuthenticated && !auth.needsTwoFactor && !_dataLoaded)) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
     if (!auth.isAuthenticated) {
+      if (auth.needsTwoFactor) {
+        return const TwoFactorVerifyScreen();
+      }
       return const AuthScreen();
     }
 
