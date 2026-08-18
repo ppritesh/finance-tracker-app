@@ -33,7 +33,11 @@ class AuthController extends ChangeNotifier {
   String? get pendingUserEmail => _pendingUserEmail;
 
   Future<void> load() async {
-    api.token = await _secureStorage.readToken();
+    try {
+      api.token = await _secureStorage.readToken();
+    } catch (_) {
+      api.token = null;
+    }
     final prefs = await SharedPreferences.getInstance();
     _userName = prefs.getString(_nameKey);
     _userEmail = prefs.getString(_emailKey);
@@ -110,8 +114,12 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> refreshUser() async {
-    final result = await api.fetchUser();
-    await _updateUserFlags(result);
+    try {
+      final result = await api.fetchUser();
+      await _updateUserFlags(result);
+    } catch (_) {
+      // Ignore profile refresh errors (e.g. expired token).
+    }
   }
 
   Future<void> signOut() async {

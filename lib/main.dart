@@ -9,6 +9,7 @@ import 'screens/home_screen.dart';
 import 'screens/two_factor_verify_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const FinanceTrackerApp());
 }
 
@@ -100,8 +101,13 @@ class _AppGateState extends State<_AppGate> {
 
     if (!mounted) return;
 
-    if (auth.isAuthenticated && !auth.needsTwoFactor && !_dataLoaded) {
-      await context.read<FinanceRepository>().refreshAll();
+    try {
+      if (auth.isAuthenticated && !auth.needsTwoFactor && !_dataLoaded) {
+        await context.read<FinanceRepository>().refreshAll();
+        if (mounted) setState(() => _dataLoaded = true);
+        return;
+      }
+    } catch (_) {
       if (mounted) setState(() => _dataLoaded = true);
       return;
     }
